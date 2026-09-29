@@ -13,48 +13,7 @@ DNS → TCP → TLS → Certificate → HTTP → Redirect
 actually happens, then tells you which layer it stopped at, what usually causes
 that, and which command to run next. One binary, no daemon, no root.
 
-```
-● WhyIsItDown
-
-Target
-https://api.example.com/
-
-DNS
-✓ 104.18.1.10
-✓ 104.18.0.10
-  19ms
-
-TCP
-✓ 104.18.1.10:443
-  31ms
-
-TLS
-✓ TLS 1.3
-  h2
-  47ms
-
-Certificate
-✓ api.example.com
-  Issuer: Let's Encrypt
-  Expires: 2026-12-01
-  Remaining: 74 days
-
-HTTP
-✓ 200 OK
-  117ms
-  Server: nginx
-
-Redirect
-✓ no redirect
-
-────────────────────────────────────
-
-Everything looks good.
-
-Total: 214ms
-```
-
-<!-- TODO: replace with an asciinema recording or a terminal screenshot -->
+![whyisitdown checking a healthy service](docs/demo.gif)
 
 ## When something breaks
 
@@ -407,6 +366,13 @@ offline today, and it should stay that way.
 A new failure mode usually means three small changes: an `ErrorKind` in
 `internal/check`, a branch in the relevant checker's `classify` function with
 its causes and suggested commands, and a rule in `internal/diagnosis`.
+
+If a change alters what the terminal output looks like, re-record the demo:
+
+```bash
+brew install asciinema agg
+docs/record-demo.sh
+```
 
 ### Releasing
 

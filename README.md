@@ -2,24 +2,16 @@
 
 Find out why a service is down before opening five terminals.
 
-DNS → TCP → TLS → HTTP
+DNS → TCP → TLS → Certificate → HTTP → Redirect
 
 [![ci](https://github.com/wookja-0/whyisitdown/actions/workflows/ci.yml/badge.svg)](https://github.com/wookja-0/whyisitdown/actions/workflows/ci.yml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/wookja-0/whyisitdown)](https://goreportcard.com/report/github.com/wookja-0/whyisitdown)
 [![release](https://img.shields.io/github/v/release/wookja-0/whyisitdown)](https://github.com/wookja-0/whyisitdown/releases/latest)
+[![Go Report Card](https://goreportcard.com/badge/github.com/wookja-0/whyisitdown)](https://goreportcard.com/report/github.com/wookja-0/whyisitdown)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
----
-
 `whyisitdown` takes one URL and walks the request down the stack the way it
-actually happens: resolve the name, open the socket, negotiate TLS, check the
-certificate, send the request, follow the redirects. It then tells you which
-layer the request stopped at, what usually causes that, and which command to
-run next.
-
-It replaces the reflex sequence of `dig`, `nc`, `openssl s_client` and
-`curl -v` with a single command whose output you can paste into an incident
-channel.
+actually happens, then tells you which layer it stopped at, what usually causes
+that, and which command to run next. One binary, no daemon, no root.
 
 ```
 ● WhyIsItDown
@@ -64,7 +56,10 @@ Total: 214ms
 
 <!-- TODO: replace with an asciinema recording or a terminal screenshot -->
 
-When something is broken, the failing layer is the part you see:
+## When something breaks
+
+The failing layer is the part you see, with the likely cause and the next
+command to run:
 
 ```
 DNS
@@ -104,37 +99,88 @@ Network / Firewall / Load Balancer
 
 ## Install
 
-Homebrew:
+Every release ships a `checksums.txt` next to the archives if you want to
+verify the download.
+
+### macOS
+
+#### Apple Silicon
 
 ```bash
-brew install <owner>/tap/whyisitdown   # not published yet
-```
-
-GitHub Releases — download the archive for your platform from the
-[releases page](https://github.com/wookja-0/whyisitdown/releases) and put the
-binary on your `PATH`:
-
-```bash
-curl -sSL https://github.com/wookja-0/whyisitdown/releases/latest/download/whyisitdown_Linux_x86_64.tar.gz \
-  | tar xz whyisitdown
+curl -sSL https://github.com/wookja-0/whyisitdown/releases/latest/download/whyisitdown_Darwin_arm64.tar.gz | tar -xzf - whyisitdown
 sudo mv whyisitdown /usr/local/bin/
+whyisitdown --version
 ```
 
-Go:
+#### Intel
+
+```bash
+curl -sSL https://github.com/wookja-0/whyisitdown/releases/latest/download/whyisitdown_Darwin_x86_64.tar.gz | tar -xzf - whyisitdown
+sudo mv whyisitdown /usr/local/bin/
+whyisitdown --version
+```
+
+The binaries are unsigned. Downloading with `curl` is fine; if you download an
+archive with a browser instead, clear the quarantine flag with
+`xattr -d com.apple.quarantine whyisitdown`.
+
+### Linux
+
+#### x86_64
+
+```bash
+curl -sSL https://github.com/wookja-0/whyisitdown/releases/latest/download/whyisitdown_Linux_x86_64.tar.gz | tar -xzf - whyisitdown
+sudo mv whyisitdown /usr/local/bin/
+whyisitdown --version
+```
+
+#### arm64
+
+```bash
+curl -sSL https://github.com/wookja-0/whyisitdown/releases/latest/download/whyisitdown_Linux_arm64.tar.gz | tar -xzf - whyisitdown
+sudo mv whyisitdown /usr/local/bin/
+whyisitdown --version
+```
+
+### Windows
+
+PowerShell:
+
+```powershell
+Invoke-WebRequest -Uri https://github.com/wookja-0/whyisitdown/releases/latest/download/whyisitdown_Windows_x86_64.zip -OutFile whyisitdown.zip
+Expand-Archive -Path whyisitdown.zip -DestinationPath .
+.\whyisitdown.exe --version
+```
+
+Move `whyisitdown.exe` somewhere on your `PATH` to run it from any directory.
+
+### Go
 
 ```bash
 go install github.com/wookja-0/whyisitdown@latest
+whyisitdown --version
 ```
 
-From source:
+### From source
 
 ```bash
 git clone https://github.com/wookja-0/whyisitdown
 cd whyisitdown
 go build -o whyisitdown .
+./whyisitdown --version
 ```
 
-No root, no daemon, no configuration file. One binary.
+### Homebrew
+
+Coming soon.
+
+## Quick start
+
+```bash
+whyisitdown https://example.com
+whyisitdown api.example.com --timeout 2s
+whyisitdown api.example.com --json
+```
 
 ## Usage
 
@@ -166,14 +212,8 @@ https://[2606:4700::1]/
 ## Examples
 
 ```bash
-# Is it me, or is it them?
-whyisitdown api.example.com
-
 # A health endpoint behind a non-standard port
 whyisitdown https://api.example.com:8443/health
-
-# Impatient incident mode
-whyisitdown api.example.com --timeout 2s
 
 # See the 301 instead of what it points at
 whyisitdown example.com --no-redirect
@@ -196,7 +236,7 @@ whyisitdown https://api.example.com/health || echo "rollback"
 | **HTTP** | Status, latency, `Server`, `Content-Type`, `Content-Length` | 4xx, 5xx, timeout, malformed response |
 | **Redirect** | The full chain with the status at each hop | redirect loop, chain longer than 10 hops |
 
-Three details are worth knowing:
+Four details are worth knowing:
 
 - **The certificate is verified separately from the handshake.** The handshake
   is made without verification so the certificate can be read and reported even
@@ -208,13 +248,13 @@ Three details are worth knowing:
   to report what the application answered.
 - **The first HTTP request is pinned to the address the TCP step connected
   to**, so DNS round-robin cannot make the initial HTTP result describe a
-  different server than the one that was probed. Later hops in a redirect
-  chain are resolved normally.
+  different server than the one that was probed. Later hops in a redirect chain
+  are resolved normally.
 - **The certificate check covers the target, not the whole redirect chain.** If
   the chain ends on a different HTTPS host, that host's certificate is not
   verified in v0.1 — the output says so when it happens:
 
-  ```
+  ```text
     https://example.com/
       ↓ 301
     https://www.example.org/

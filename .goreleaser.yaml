@@ -44,5 +44,8 @@ changelog:
       - '^chore:'
 
 release:
+  # Published by the release workflow only after the smoke test passes, so a
+  # broken archive is never visible to anyone.
+  draft: true
   footer: |
     Full changelog: https://github.com/wookja-0/whyisitdown/compare/{{ .PreviousTag }}...{{ .Tag }}

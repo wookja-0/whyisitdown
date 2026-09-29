@@ -1,3 +1,6 @@
+# A tag builds a draft release, the draft is installed and run on every
+# platform it ships for, and only then is it published. A broken archive stays
+# invisible instead of being something a user can download.
 name: release
 
 on:
@@ -8,7 +11,7 @@ permissions:
   contents: write
 
 jobs:
-  goreleaser:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,13 +23,46 @@ jobs:
           go-version: stable
 
       # A tag can be pushed at any commit, including one that never went
-      # through a pull request. Re-run the suite before publishing binaries.
+      # through a pull request. Re-run the suite before building anything.
       - name: go test
         run: go test ./...
 
+      # .goreleaser.yaml sets draft: true, so this uploads the archives to a
+      # release nobody can see yet.
       - uses: goreleaser/goreleaser-action@v6
         with:
           version: '~> v2'
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  smoke:
+    needs: build
+    uses: ./.github/workflows/release-smoke.yml
+    with:
+      tag: ${{ github.ref_name }}
+      draft: true
+
+  publish:
+    needs: smoke
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish the draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "${{ github.ref_name }}" --repo "${{ github.repository }}" --draft=false
+
+  # The smoke test above reads the draft through the API. This is the last
+  # link in the chain: the exact command the README prints, against the public
+  # URL, on a release that is now live.
+  verify-public:
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install the way the README says to
+        run: |
+          curl -sSL --retry 5 --retry-delay 3 --retry-all-errors \
+            "https://github.com/${{ github.repository }}/releases/latest/download/whyisitdown_Linux_x86_64.tar.gz" \
+            | tar -xzf - whyisitdown
+          ./whyisitdown --version
+          ./whyisitdown https://example.com

@@ -363,10 +363,10 @@ Tests must not depend on the public internet: use `httptest.Server`, a local
 `net.Listener`, or a generated certificate. Everything in the suite runs
 offline today, and it should stay that way.
 
-The one exception is the `release-smoke` workflow, which installs a published
-release on each supported platform exactly as the install section describes and
-runs it. It fires on every release and can be run by hand from the Actions tab
-against any tag.
+The one exception is the `release-smoke` workflow, which installs a release on
+each supported platform exactly as the install section describes and runs it.
+It gates every release, and can be run by hand from the Actions tab against any
+published tag.
 
 A new failure mode usually means three small changes: an `ErrorKind` in
 `internal/check`, a branch in the relevant checker's `classify` function with
@@ -384,8 +384,18 @@ docs/record-demo.sh
 1. Update the `version` field in the JSON example above to the version being
    released. It is the one place in this file that names a specific version,
    and nothing enforces it.
-2. Tag and push: `git tag -a vX.Y.Z -m "..." && git push origin vX.Y.Z`. The
-   release workflow runs the tests and publishes the binaries.
+2. Tag and push: `git tag -a vX.Y.Z -m "..." && git push origin vX.Y.Z`.
+
+The tag builds a **draft** release, installs it on Linux (x86_64 and arm64),
+macOS (both architectures) and Windows, runs it on each, and only then
+publishes. A release that fails the smoke test stays a draft, so nothing
+broken is ever downloadable. To recover, delete the draft and the tag, fix the
+problem, and tag again:
+
+```bash
+gh release delete vX.Y.Z --yes
+git push origin :refs/tags/vX.Y.Z && git tag -d vX.Y.Z
+```
 
 ## License
 

@@ -4,6 +4,10 @@ Find out why a service is down before opening five terminals.
 
 DNS → TCP → TLS → HTTP
 
+[![ci](https://github.com/wookja-0/whyisitdown/actions/workflows/ci.yml/badge.svg)](https://github.com/wookja-0/whyisitdown/actions/workflows/ci.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/wookja-0/whyisitdown)](https://goreportcard.com/report/github.com/wookja-0/whyisitdown)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 ---
 
 `whyisitdown` takes one URL and walks the request down the stack the way it

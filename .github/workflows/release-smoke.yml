@@ -92,3 +92,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "a healthy target must exit 0" }
           .\whyisitdown.exe whyisitdown-smoke-test.invalid --timeout 5s
           if ($LASTEXITCODE -ne 1) { throw "an unresolvable name must exit 1, got $LASTEXITCODE" }
+          # Actions appends `exit $LASTEXITCODE` to a pwsh step, and the check
+          # above deliberately leaves it at 1. Without this the step fails on a
+          # successful assertion.
+          exit 0

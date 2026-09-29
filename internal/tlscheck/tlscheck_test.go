@@ -6,7 +6,9 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -211,6 +213,12 @@ func TestRunPlaintextServer(t *testing.T) {
 	}
 	if res.Certificate.Status != check.StatusSkip {
 		t.Errorf("certificate status = %q, want skip", res.Certificate.Status)
+	}
+	// The openssl suggestion must name the port that was probed, not 443.
+	_, port, _ := net.SplitHostPort(ln.Addr().String())
+	want := "-connect 127.0.0.1:" + port
+	if !slices.ContainsFunc(res.TLS.Error.Commands, func(c string) bool { return strings.Contains(c, want) }) {
+		t.Errorf("commands = %v, want one containing %q", res.TLS.Error.Commands, want)
 	}
 }
 

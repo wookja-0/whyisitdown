@@ -178,6 +178,45 @@ func TestTextVerbose(t *testing.T) {
 	}
 }
 
+// A chain that ends on another HTTPS host leaves the certificate check behind,
+// and the reader has to be told rather than left to assume otherwise.
+func TestTextFlagsCrossHostRedirect(t *testing.T) {
+	r := passingReport()
+	r.Checks.Redirect.Count = 1
+	r.Checks.Redirect.Hops = []check.Hop{
+		{URL: "https://example.com/", StatusCode: 301, Location: "https://www.example.org/"},
+		{URL: "https://www.example.org/", StatusCode: 200},
+	}
+	var buf bytes.Buffer
+	if err := Text(&buf, r, TextOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "certificate not checked for www.example.org") {
+		t.Errorf("output does not flag the unverified host\n%s", buf.String())
+	}
+}
+
+func TestTextDoesNotFlagSameHostRedirect(t *testing.T) {
+	for _, name := range []string{"same host", "ends on http"} {
+		r := passingReport()
+		r.Checks.Redirect.Count = 1
+		r.Checks.Redirect.Hops = []check.Hop{
+			{URL: "https://example.com/a", StatusCode: 301},
+			{URL: "https://example.com/b", StatusCode: 200},
+		}
+		if name == "ends on http" {
+			r.Checks.Redirect.Hops[1].URL = "http://other.example.com/b"
+		}
+		var buf bytes.Buffer
+		if err := Text(&buf, r, TextOptions{}); err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(buf.String(), "certificate not checked") {
+			t.Errorf("%s: unexpected warning\n%s", name, buf.String())
+		}
+	}
+}
+
 func TestJSONShape(t *testing.T) {
 	var buf bytes.Buffer
 	if err := JSON(&buf, passingReport()); err != nil {

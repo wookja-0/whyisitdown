@@ -121,8 +121,15 @@ func validateHostname(h string) error {
 		if len(label) > 63 {
 			return fmt.Errorf("%w: hostname label %q is too long", ErrInvalid, label)
 		}
+		if label[0] == '-' || label[len(label)-1] == '-' {
+			return fmt.Errorf("%w: hostname label %q starts or ends with a hyphen", ErrInvalid, label)
+		}
 		for _, r := range label {
 			switch {
+			// Underscores are not legal in hostnames, but they exist in the
+			// wild and Go's HTTP client requests them without complaint.
+			// Refusing to diagnose a host that actually resolves would be the
+			// worse failure for a tool whose job is to explain outages.
 			case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '-', r == '_':
 			default:
 				return fmt.Errorf("%w: hostname %q contains an invalid character %q", ErrInvalid, h, r)

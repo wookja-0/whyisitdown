@@ -4,6 +4,10 @@ Find out why a service is down before opening five terminals.
 
 DNS → TCP → TLS → HTTP
 
+[![ci](https://github.com/wookja-0/whyisitdown/actions/workflows/ci.yml/badge.svg)](https://github.com/wookja-0/whyisitdown/actions/workflows/ci.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/wookja-0/whyisitdown)](https://goreportcard.com/report/github.com/wookja-0/whyisitdown)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 ---
 
 `whyisitdown` takes one URL and walks the request down the stack the way it
@@ -203,6 +207,18 @@ Three details are worth knowing:
   to report what the application answered.
 - **The HTTP request is pinned to the address the TCP step connected to**, so
   DNS round-robin cannot make the two steps describe different servers.
+- **The certificate check covers the target, not the whole redirect chain.** If
+  the chain ends on a different HTTPS host, that host's certificate is not
+  verified in v0.1 — the output says so when it happens:
+
+  ```
+    https://example.com/
+      ↓ 301
+    https://www.example.org/
+      ↓ 200
+
+    certificate not checked for www.example.org; the Certificate step covers the initial target
+  ```
 
 Response bodies are never printed, and only the first few kilobytes are read.
 
@@ -314,6 +330,8 @@ Stability rules:
 
 Not implemented yet, and not promised:
 
+- certificate verification for each HTTPS host in a redirect chain
+- internationalised domain names (punycode via `golang.org/x/net/idna`)
 - `--dns-server` to query a specific resolver
 - custom HTTP headers, and `HEAD` / `POST`
 - proxy support

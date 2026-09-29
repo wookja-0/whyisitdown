@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"net"
+	"slices"
 	"strconv"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -75,6 +77,25 @@ func TestRunRefused(t *testing.T) {
 	if res.Report.Error.Kind != check.KindTCPRefused {
 		t.Errorf("kind = %q, want %q", res.Report.Error.Kind, check.KindTCPRefused)
 	}
+	// The suggested command has to reproduce what was attempted; an https://
+	// suggestion for an http:// target sends the reader to a different port.
+	for _, cmd := range res.Report.Error.Commands {
+		if strings.HasPrefix(cmd, "curl") && !strings.Contains(cmd, "http://127.0.0.1:") {
+			t.Errorf("suggested %q, want the target's own scheme", cmd)
+		}
+	}
+}
+
+func TestClassifyUsesTargetScheme(t *testing.T) {
+	for _, scheme := range []string{"http", "https"} {
+		t.Run(scheme, func(t *testing.T) {
+			got := classify("10.0.0.1:8443", scheme, 8443, syscall.ECONNREFUSED)
+			want := scheme + "://10.0.0.1:8443/"
+			if !slices.ContainsFunc(got.Commands, func(c string) bool { return strings.Contains(c, want) }) {
+				t.Errorf("commands = %v, want one containing %q", got.Commands, want)
+			}
+		})
+	}
 }
 
 // A closed address followed by an open one is the load-balancer case: the
@@ -122,7 +143,7 @@ func TestClassify(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := Classify("10.0.0.1:443", 443, tc.err)
+			got := classify("10.0.0.1:443", "https", 443, tc.err)
 			if got.Kind != tc.want {
 				t.Errorf("kind = %q, want %q", got.Kind, tc.want)
 			}

@@ -55,7 +55,7 @@ func (c Checker) Run(ctx context.Context, t *target.Target, addresses []string) 
 		attempt := check.TCPAttempt{Address: hostPort, Duration: check.Millis(elapsed)}
 		if err != nil {
 			attempt.Status = check.StatusFail
-			attempt.Error = Classify(hostPort, t.Port, err)
+			attempt.Error = classify(hostPort, t.URL.Scheme, t.Port, err)
 			res.Attempts = append(res.Attempts, attempt)
 			continue
 		}
@@ -87,9 +87,10 @@ const (
 	wsaeNetDown     = syscall.Errno(10050)
 )
 
-// Classify maps a dial error to a stable kind plus operator guidance. It is
-// exported because the TLS step dials too.
-func Classify(hostPort string, port int, err error) *check.Error {
+// classify maps a dial error to a stable kind plus operator guidance. The
+// scheme is carried through so the suggested command reproduces what was
+// actually attempted rather than assuming https.
+func classify(hostPort, scheme string, port int, err error) *check.Error {
 	e := &check.Error{Kind: check.KindUnknown, Detail: err.Error()}
 	portStr := strconv.Itoa(port)
 
@@ -142,7 +143,7 @@ func Classify(hostPort string, port int, err error) *check.Error {
 	}
 	e.Commands = []string{
 		fmt.Sprintf("nc -vz %s %s", host, portStr),
-		fmt.Sprintf("curl -v --connect-timeout 5 https://%s/", hostPort),
+		fmt.Sprintf("curl -v --connect-timeout 5 %s://%s/", scheme, hostPort),
 	}
 	return e
 }

@@ -292,7 +292,7 @@ error text. The request itself is still sent with the real values.
 {
   "schema_version": 1,
   "tool": "whyisitdown",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "target": "https://example.com/",
   "status": "fail",
   "total_duration_ms": 259,
@@ -407,6 +407,14 @@ offline today, and it should stay that way.
 A new failure mode usually means three small changes: an `ErrorKind` in
 `internal/check`, a branch in the relevant checker's `classify` function with
 its causes and suggested commands, and a rule in `internal/diagnosis`.
+
+### Releasing
+
+1. Update the `version` field in the JSON example above to the version being
+   released. It is the one place in this file that names a specific version,
+   and nothing enforces it.
+2. Tag and push: `git tag -a vX.Y.Z -m "..." && git push origin vX.Y.Z`. The
+   release workflow runs the tests and publishes the binaries.
 
 ## License
 

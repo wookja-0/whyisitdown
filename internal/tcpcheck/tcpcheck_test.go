@@ -86,6 +86,20 @@ func TestRunRefused(t *testing.T) {
 	}
 }
 
+// An IPv6 address has to reach the suggested curl bracketed, or the command
+// cannot be pasted into a shell.
+func TestClassifyBracketsIPv6(t *testing.T) {
+	got := classify("[2606:4700::1]:8443", "https", 8443, syscall.ECONNREFUSED)
+	for _, want := range []string{
+		"nc -vz 2606:4700::1 8443",
+		"curl -v --connect-timeout 5 https://[2606:4700::1]:8443/",
+	} {
+		if !slices.Contains(got.Commands, want) {
+			t.Errorf("commands = %#v, want %q", got.Commands, want)
+		}
+	}
+}
+
 func TestClassifyUsesTargetScheme(t *testing.T) {
 	for _, scheme := range []string{"http", "https"} {
 		t.Run(scheme, func(t *testing.T) {

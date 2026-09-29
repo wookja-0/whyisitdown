@@ -6,6 +6,7 @@ DNS → TCP → TLS → HTTP
 
 [![ci](https://github.com/wookja-0/whyisitdown/actions/workflows/ci.yml/badge.svg)](https://github.com/wookja-0/whyisitdown/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/wookja-0/whyisitdown)](https://goreportcard.com/report/github.com/wookja-0/whyisitdown)
+[![release](https://img.shields.io/github/v/release/wookja-0/whyisitdown)](https://github.com/wookja-0/whyisitdown/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ---
@@ -205,8 +206,10 @@ Three details are worth knowing:
   "the service is down".
 - **The HTTP step therefore does not re-validate the certificate.** Its job is
   to report what the application answered.
-- **The HTTP request is pinned to the address the TCP step connected to**, so
-  DNS round-robin cannot make the two steps describe different servers.
+- **The first HTTP request is pinned to the address the TCP step connected
+  to**, so DNS round-robin cannot make the initial HTTP result describe a
+  different server than the one that was probed. Later hops in a redirect
+  chain are resolved normally.
 - **The certificate check covers the target, not the whole redirect chain.** If
   the chain ends on a different HTTPS host, that host's certificate is not
   verified in v0.1 — the output says so when it happens:

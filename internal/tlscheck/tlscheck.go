@@ -279,10 +279,16 @@ func classifyVerify(host string, port int, cert check.Certificate, err error) *c
 
 // sClient builds the openssl command for this exact endpoint. Suggesting :443
 // for a target on another port sends the reader somewhere they did not ask
-// about, which is worse than suggesting nothing.
+// about, which is worse than suggesting nothing. JoinHostPort also brackets
+// IPv6 literals, which openssl requires.
 func sClient(host string, port int) string {
-	return fmt.Sprintf("openssl s_client -connect %s -servername %s",
-		net.JoinHostPort(host, strconv.Itoa(port)), host)
+	cmd := "openssl s_client -connect " + net.JoinHostPort(host, strconv.Itoa(port))
+	// SNI is undefined for IP literals and some servers reject a hello that
+	// carries one, so the suggestion must not include -servername there.
+	if net.ParseIP(host) == nil {
+		cmd += " -servername " + host
+	}
+	return cmd
 }
 
 func nameOf(commonName string, organization []string, fallback string) string {

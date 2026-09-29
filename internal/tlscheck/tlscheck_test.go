@@ -246,6 +246,29 @@ func TestExpiryStatus(t *testing.T) {
 	}
 }
 
+// The suggested command has to be runnable as printed: bracketed for IPv6,
+// and without an SNI name that TLS does not define for IP literals.
+func TestSClient(t *testing.T) {
+	tests := []struct {
+		name string
+		host string
+		port int
+		want string
+	}{
+		{"hostname", "api.example.com", 8443, "openssl s_client -connect api.example.com:8443 -servername api.example.com"},
+		{"default port is not assumed", "api.example.com", 443, "openssl s_client -connect api.example.com:443 -servername api.example.com"},
+		{"ipv4 literal", "10.0.3.18", 8443, "openssl s_client -connect 10.0.3.18:8443"},
+		{"ipv6 literal", "2606:4700::1", 8443, "openssl s_client -connect [2606:4700::1]:8443"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := sClient(tc.host, tc.port); got != tc.want {
+				t.Errorf("sClient(%q, %d) =\n  %q\nwant\n  %q", tc.host, tc.port, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestSkipped(t *testing.T) {
 	res := Skipped()
 	if res.TLS.Status != check.StatusSkip || res.Certificate.Status != check.StatusSkip {

@@ -4,6 +4,7 @@ package output
 import (
 	"fmt"
 	"io"
+	"net/url"
 	"strings"
 
 	"github.com/wookja-0/whyisitdown/internal/check"
@@ -234,10 +235,37 @@ func (t *textWriter) redirect(c check.Redirect) {
 			t.printf("%s\n", arrow)
 		}
 	}
+	if host := crossHostTLS(c.Hops); host != "" {
+		t.printf("\n  %s\n", t.p.wrap(t.p.dim,
+			"certificate not checked for "+host+"; the Certificate step covers the initial target"))
+	}
 	if c.Failed() && c.Error != nil {
 		t.printf("\n%s %s\n", t.symbol(check.StatusFail), c.Error.Message)
 		t.causes(c.Error)
 	}
+}
+
+// crossHostTLS returns the final host when a chain ends on an HTTPS host other
+// than the one it started from. That host's certificate was never verified:
+// the Certificate step inspects the target, and the HTTP step deliberately
+// skips verification. Saying so is cheaper than letting the reader assume a
+// green Certificate line covered the whole chain.
+func crossHostTLS(hops []check.Hop) string {
+	if len(hops) < 2 {
+		return ""
+	}
+	first, err := url.Parse(hops[0].URL)
+	if err != nil {
+		return ""
+	}
+	last, err := url.Parse(hops[len(hops)-1].URL)
+	if err != nil {
+		return ""
+	}
+	if last.Scheme != "https" || strings.EqualFold(first.Hostname(), last.Hostname()) {
+		return ""
+	}
+	return last.Host
 }
 
 // failure prints a step that produced nothing but an error.

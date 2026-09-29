@@ -19,6 +19,11 @@ jobs:
         with:
           go-version: stable
 
+      # A tag can be pushed at any commit, including one that never went
+      # through a pull request. Re-run the suite before publishing binaries.
+      - name: go test
+        run: go test ./...
+
       - uses: goreleaser/goreleaser-action@v6
         with:
           version: '~> v2'

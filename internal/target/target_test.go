@@ -24,6 +24,8 @@ func TestParse(t *testing.T) {
 		{"ipv6 literal", "https://[::1]:8443/", "https://[::1]:8443/", "::1", 8443, true},
 		{"trailing dot", "example.com.", "https://example.com./", "example.com.", 443, true},
 		{"query preserved", "https://example.com/a?b=c", "https://example.com/a?b=c", "example.com", 443, true},
+		{"internal hyphens", "api--v2.example.com", "https://api--v2.example.com/", "api--v2.example.com", 443, true},
+		{"underscore host", "my_host.internal", "https://my_host.internal/", "my_host.internal", 443, true},
 		{"surrounding space", "  example.com  ", "https://example.com/", "example.com", 443, true},
 	}
 	for _, tc := range tests {
@@ -81,6 +83,10 @@ func TestParseInvalid(t *testing.T) {
 		"example.com:http",
 		"exa mple.com",
 		"example..com",
+		"-example.com",
+		"example-.com",
+		"api.-internal.example.com",
+		"https://한글.example.com",
 	} {
 		t.Run(in, func(t *testing.T) {
 			if _, err := Parse(in); !errors.Is(err, ErrInvalid) {

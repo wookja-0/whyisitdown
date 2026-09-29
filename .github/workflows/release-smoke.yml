@@ -1,0 +1,94 @@
+# Installs a published release the way the README tells a user to, on every
+# platform it ships for, and runs it.
+#
+# The build matrix in .goreleaser.yaml only proves the binaries compile. This
+# proves the archives extract and the binaries run on the systems they were
+# built for, which is what a reader following the install section experiences.
+name: release-smoke
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to test, or "latest"
+        required: false
+        default: latest
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x86_64
+            os: ubuntu-latest
+            asset: whyisitdown_Linux_x86_64.tar.gz
+          - name: linux-arm64
+            os: ubuntu-24.04-arm
+            asset: whyisitdown_Linux_arm64.tar.gz
+          - name: macos-arm64
+            os: macos-latest
+            asset: whyisitdown_Darwin_arm64.tar.gz
+          - name: macos-x86_64
+            os: macos-15-intel
+            asset: whyisitdown_Darwin_x86_64.tar.gz
+          - name: windows-x86_64
+            os: windows-latest
+            asset: whyisitdown_Windows_x86_64.zip
+    steps:
+      - name: Resolve download URL
+        id: url
+        shell: bash
+        run: |
+          tag="${{ github.event.release.tag_name || inputs.tag || 'latest' }}"
+          if [ "$tag" = "latest" ]; then
+            base="https://github.com/${{ github.repository }}/releases/latest/download"
+          else
+            base="https://github.com/${{ github.repository }}/releases/download/$tag"
+          fi
+          echo "url=$base/${{ matrix.asset }}" >> "$GITHUB_OUTPUT"
+          echo "testing $tag on ${{ matrix.name }}"
+
+      # The extraction command is the one printed in the README, so a change
+      # that breaks copy-paste installation fails here.
+      - name: Install (Unix)
+        if: runner.os != 'Windows'
+        run: curl -sSL "${{ steps.url.outputs.url }}" | tar -xzf - whyisitdown
+
+      - name: Install (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "${{ steps.url.outputs.url }}" -OutFile whyisitdown.zip
+          Expand-Archive -Path whyisitdown.zip -DestinationPath .
+
+      - name: Run (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          ./whyisitdown --version
+          ./whyisitdown https://example.com
+          ./whyisitdown https://example.com --json | head -3
+          # A name that cannot resolve must exit 1, which is the contract for
+          # using this in a pipeline.
+          if ./whyisitdown whyisitdown-smoke-test.invalid --timeout 5s; then
+            echo "expected a failing exit code for an unresolvable name"
+            exit 1
+          fi
+
+      - name: Run (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          .\whyisitdown.exe --version
+          if ($LASTEXITCODE -ne 0) { throw "--version failed" }
+          .\whyisitdown.exe https://example.com
+          if ($LASTEXITCODE -ne 0) { throw "a healthy target must exit 0" }
+          .\whyisitdown.exe whyisitdown-smoke-test.invalid --timeout 5s
+          if ($LASTEXITCODE -ne 1) { throw "an unresolvable name must exit 1, got $LASTEXITCODE" }

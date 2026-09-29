@@ -53,6 +53,17 @@ jobs:
             exit 1
           fi
 
+      # gofmt does not group imports, so the policy of keeping the standard
+      # library separate from local packages needs its own check.
+      - name: goimports
+        run: |
+          ungrouped=$(go run golang.org/x/tools/cmd/goimports@latest -l .)
+          if [ -n "$ungrouped" ]; then
+            echo "these files need goimports:"
+            echo "$ungrouped"
+            exit 1
+          fi
+
       - name: go build
         run: go build ./...
 

@@ -292,7 +292,7 @@ error text. The request itself is still sent with the real values.
 {
   "schema_version": 1,
   "tool": "whyisitdown",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "target": "https://example.com/",
   "status": "fail",
   "total_duration_ms": 259,

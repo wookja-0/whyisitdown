@@ -15,9 +15,23 @@ on:
         description: Release tag to test, or "latest"
         required: false
         default: latest
+  # Called by the release workflow against the draft, before it is published.
+  workflow_call:
+    inputs:
+      tag:
+        description: Release tag to test
+        required: true
+        type: string
+      draft:
+        description: Fetch through the API instead of the public URL
+        required: false
+        default: false
+        type: boolean
 
+# A draft release is only visible to callers with push access, so reading its
+# assets needs more than contents:read.
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   smoke:
@@ -53,21 +67,39 @@ jobs:
           else
             base="https://github.com/${{ github.repository }}/releases/download/$tag"
           fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "url=$base/${{ matrix.asset }}" >> "$GITHUB_OUTPUT"
           echo "testing $tag on ${{ matrix.name }}"
 
-      # The extraction command is the one printed in the README, so a change
-      # that breaks copy-paste installation fails here.
+      # A draft's assets have no public URL, so they come through the API. The
+      # archive is the same one the public URL will serve once it is published.
+      - name: Download (draft)
+        if: inputs.draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download "${{ steps.url.outputs.tag }}" --repo "${{ github.repository }}" --pattern "${{ matrix.asset }}"
+
+      # Otherwise use the command the README prints, so a change that breaks
+      # copy-paste installation fails here.
       - name: Install (Unix)
-        if: runner.os != 'Windows'
+        if: runner.os != 'Windows' && !inputs.draft
         run: curl -sSL "${{ steps.url.outputs.url }}" | tar -xzf - whyisitdown
 
+      - name: Extract (Unix, draft)
+        if: runner.os != 'Windows' && inputs.draft
+        run: tar -xzf "${{ matrix.asset }}" whyisitdown
+
       - name: Install (Windows)
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && !inputs.draft
         shell: pwsh
         run: |
           Invoke-WebRequest -Uri "${{ steps.url.outputs.url }}" -OutFile whyisitdown.zip
           Expand-Archive -Path whyisitdown.zip -DestinationPath .
+
+      - name: Extract (Windows, draft)
+        if: runner.os == 'Windows' && inputs.draft
+        shell: pwsh
+        run: Expand-Archive -Path "${{ matrix.asset }}" -DestinationPath .
 
       - name: Run (Unix)
         if: runner.os != 'Windows'

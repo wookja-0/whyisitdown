@@ -184,14 +184,21 @@ func TestRunPlaintextServer(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer ln.Close()
+	done := make(chan struct{})
+	defer close(done)
 	go func() {
 		conn, err := ln.Accept()
 		if err != nil {
 			return
 		}
 		defer conn.Close()
-		// Answer a TLS ClientHello with plain HTTP, as a misconfigured port does.
+		// Answer a TLS ClientHello with plain HTTP, as a misconfigured port
+		// does. The ClientHello is read first and the connection is held open
+		// afterwards: closing immediately can reset the socket before the
+		// client has read the reply, which loses the response on Windows.
+		conn.Read(make([]byte, 1024))
 		conn.Write([]byte("HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\n\r\n"))
+		<-done
 	}()
 
 	conn, tg := dial(t, ln.Addr().String(), "127.0.0.1")

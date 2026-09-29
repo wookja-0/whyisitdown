@@ -32,7 +32,11 @@ type textWriter struct {
 	w       io.Writer
 	p       palette
 	verbose bool
-	err     error
+	// plaintext records whether the target itself is http, which is the only
+	// reason the TLS steps are genuinely "not applicable" rather than merely
+	// unreached.
+	plaintext bool
+	err       error
 }
 
 func (t *textWriter) printf(format string, args ...any) {
@@ -43,6 +47,7 @@ func (t *textWriter) printf(format string, args ...any) {
 }
 
 func (t *textWriter) render(r check.Report) {
+	t.plaintext = strings.HasPrefix(r.Target, "http://")
 	t.printf("%s %s\n\n", t.p.wrap(t.p.cyan, "●"), t.p.wrap(t.p.bold, "WhyIsItDown"))
 	t.printf("%s\n%s\n", t.p.wrap(t.p.bold, "Target"), r.Target)
 
@@ -136,7 +141,13 @@ func (t *textWriter) tcp(c check.TCP) {
 }
 
 func (t *textWriter) tls(c check.TLS) {
-	if !t.section("TLS", c.Base, "not applicable, the target is http") {
+	// A skipped TLS step means one of two different things, and saying the
+	// wrong one tells the reader something untrue about their own target.
+	note := "not attempted"
+	if t.plaintext {
+		note = "not applicable, the target is http"
+	}
+	if !t.section("TLS", c.Base, note) {
 		return
 	}
 	if c.Version != "" {

@@ -153,6 +153,35 @@ func TestTextFailing(t *testing.T) {
 	}
 }
 
+// A TLS step skipped because TCP never connected must not be reported as
+// inapplicable: the target in failingReport is https.
+func TestTextTLSSkipReason(t *testing.T) {
+	tests := []struct {
+		name   string
+		target string
+		want   string
+	}{
+		{"https target unreached", "https://api.example.com/", "not attempted"},
+		{"http target", "http://api.example.com/", "not applicable, the target is http"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			r := failingReport()
+			r.Target = tc.target
+			var buf bytes.Buffer
+			if err := Text(&buf, r, TextOptions{}); err != nil {
+				t.Fatal(err)
+			}
+			// Match the TLS section's own line, since other skipped steps
+			// share the same wording.
+			want := "\nTLS\n· " + tc.want + "\n"
+			if !strings.Contains(buf.String(), want) {
+				t.Errorf("TLS section does not read %q\n%s", tc.want, buf.String())
+			}
+		})
+	}
+}
+
 func TestTextColor(t *testing.T) {
 	var buf bytes.Buffer
 	if err := Text(&buf, passingReport(), TextOptions{Color: true}); err != nil {

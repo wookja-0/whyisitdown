@@ -47,5 +47,9 @@ release:
   # Published by the release workflow only after the smoke test passes, so a
   # broken archive is never visible to anyone.
   draft: true
+  # Mark tags carrying a semver prerelease suffix (v1.0.0-rc.1) as such. The
+  # install commands in the README point at releases/latest/download, so a
+  # release candidate that took the latest slot would be handed to everyone.
+  prerelease: auto
   footer: |
     Full changelog: https://github.com/wookja-0/whyisitdown/compare/{{ .PreviousTag }}...{{ .Tag }}

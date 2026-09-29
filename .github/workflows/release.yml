@@ -57,6 +57,9 @@ jobs:
   # URL, on a release that is now live.
   verify-public:
     needs: publish
+    # A prerelease never becomes releases/latest, so this would download the
+    # previous stable release and prove nothing.
+    if: ${{ !contains(github.ref_name, '-') }}
     runs-on: ubuntu-latest
     steps:
       - name: Install the way the README says to

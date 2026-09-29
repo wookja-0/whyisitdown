@@ -1,3 +1,4 @@
 /whyisitdown
 /dist/
 *.test
+.DS_Store

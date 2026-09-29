@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 	"time"
 
@@ -92,7 +93,7 @@ func (c Checker) Run(ctx context.Context, t *target.Target, conn net.Conn) Resul
 	res.TLS.Duration = check.Millis(time.Since(start))
 	if err != nil {
 		res.TLS.Status = check.StatusFail
-		res.TLS.Error = classifyHandshake(t.Host, err)
+		res.TLS.Error = classifyHandshake(t.Host, t.Port, err)
 		res.Certificate.Status = check.StatusSkip
 		return res
 	}
@@ -107,12 +108,12 @@ func (c Checker) Run(ctx context.Context, t *target.Target, conn net.Conn) Resul
 	// The certificate is reported separately: the TLS line describes the
 	// transport, which came up, and the Certificate line describes trust,
 	// which is a different question with a different fix.
-	res.Certificate = c.inspect(t.Host, state)
+	res.Certificate = c.inspect(t.Host, t.Port, state)
 	return res
 }
 
 // inspect fills in the certificate report and verifies the chain.
-func (c Checker) inspect(host string, state tls.ConnectionState) check.Certificate {
+func (c Checker) inspect(host string, port int, state tls.ConnectionState) check.Certificate {
 	res := check.Certificate{}
 	if len(state.PeerCertificates) == 0 {
 		res.Status = check.StatusFail
@@ -140,7 +141,7 @@ func (c Checker) inspect(host string, state tls.ConnectionState) check.Certifica
 	verifyErr := c.verify(host, state, now)
 	if verifyErr != nil {
 		res.Status = check.StatusFail
-		res.Error = classifyVerify(host, res, verifyErr)
+		res.Error = classifyVerify(host, port, res, verifyErr)
 		if res.Error.Kind == check.KindCertExpired {
 			res.ExpiryLevel = LevelExpired
 		}
@@ -191,9 +192,9 @@ func expiryStatus(days int) (check.Status, string) {
 	}
 }
 
-func classifyHandshake(host string, err error) *check.Error {
+func classifyHandshake(host string, port int, err error) *check.Error {
 	e := &check.Error{Kind: check.KindTLSHandshake, Detail: err.Error()}
-	e.Commands = []string{fmt.Sprintf("openssl s_client -connect %s:443 -servername %s", host, host)}
+	e.Commands = []string{sClient(host, port)}
 
 	var recordErr tls.RecordHeaderError
 	var netErr net.Error
@@ -225,9 +226,9 @@ func classifyHandshake(host string, err error) *check.Error {
 	return e
 }
 
-func classifyVerify(host string, cert check.Certificate, err error) *check.Error {
+func classifyVerify(host string, port int, cert check.Certificate, err error) *check.Error {
 	e := &check.Error{Kind: check.KindTLSHandshake, Detail: err.Error()}
-	e.Commands = []string{fmt.Sprintf("openssl s_client -connect %s:443 -servername %s", host, host)}
+	e.Commands = []string{sClient(host, port)}
 
 	var invalid x509.CertificateInvalidError
 	var unknownAuthority x509.UnknownAuthorityError
@@ -274,6 +275,14 @@ func classifyVerify(host string, cert check.Certificate, err error) *check.Error
 		e.Causes = []string{"the certificate chain is incomplete or malformed"}
 	}
 	return e
+}
+
+// sClient builds the openssl command for this exact endpoint. Suggesting :443
+// for a target on another port sends the reader somewhere they did not ask
+// about, which is worse than suggesting nothing.
+func sClient(host string, port int) string {
+	return fmt.Sprintf("openssl s_client -connect %s -servername %s",
+		net.JoinHostPort(host, strconv.Itoa(port)), host)
 }
 
 func nameOf(commonName string, organization []string, fallback string) string {

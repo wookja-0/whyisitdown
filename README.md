@@ -9,6 +9,8 @@ DNS → TCP → TLS → Certificate → HTTP → Redirect
 [![Go Report Card](https://goreportcard.com/badge/github.com/wookja-0/whyisitdown)](https://goreportcard.com/report/github.com/wookja-0/whyisitdown)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
+**English** · [한국어](README.ko.md)
+
 `whyisitdown` takes one URL and walks the request down the stack the way it
 actually happens, then tells you which layer it stopped at, what usually causes
 that, and which command to run next. One binary, no daemon, no root.
@@ -381,9 +383,9 @@ docs/record-demo.sh
 
 ### Releasing
 
-1. Update the `version` field in the JSON example above to the version being
-   released. It is the one place in this file that names a specific version,
-   and nothing enforces it.
+1. Update the `version` field in the JSON example, **in both this file and
+   [README.ko.md](README.ko.md)**. It is the one place either file names a
+   specific version, and nothing enforces it.
 2. Tag and push: `git tag -a vX.Y.Z -m "..." && git push origin vX.Y.Z`.
 
 The tag builds a **draft** release, installs it on Linux (x86_64 and arm64),
